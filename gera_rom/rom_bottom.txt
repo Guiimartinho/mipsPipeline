@@ -1,0 +1,6 @@
+				when 	others  => data_out <= (others => 'X');
+			end case;
+    		end if;
+  	end process; 
+
+end arq_rom32;
