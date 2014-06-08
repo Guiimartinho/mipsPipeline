@@ -17,6 +17,7 @@ package p_MI0 is
   constant SLT: std_logic_vector(2 downto 0) := "111";
 
   constant R_FORMAT: std_logic_vector(5 downto 0) := "000000";
+  constant ADDI: std_logic_vector(5 downto 0) := "001000";
   constant LW: std_logic_vector(5 downto 0) := "100101";
   constant SW: std_logic_vector(5 downto 0) := "101011";
   constant BEQ: std_logic_vector(5 downto 0) := "000100";

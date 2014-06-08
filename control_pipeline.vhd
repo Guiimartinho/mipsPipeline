@@ -33,6 +33,7 @@ begin
     begin
         case opcode is
           	when R_FORMAT => RegDst <= '1'; ALUSrc <= '0'; MemtoReg <= '0'; RegWrite <='1'; MemRead<='0'; MemWrite<='0'; Branch<='0'; ALUOp <= "10"; -- R type
+		when ADDI => RegDst <= '0'; ALUSrc <= '1'; MemtoReg <= '0'; RegWrite <='1'; MemRead<='0'; MemWrite<='0'; Branch<='0'; ALUOp <= "00"; -- ADDI
           	when LW => RegDst <= '0'; ALUSrc <= '1'; MemtoReg <= '1'; RegWrite <='1'; MemRead<='1'; MemWrite<='0'; Branch<='0'; ALUOp <= "00"; -- LW
 		when SW => RegDst <= 'X'; ALUSrc <= '1'; MemtoReg <= 'X'; RegWrite <='0'; MemRead<='0'; MemWrite<='1'; Branch<='0'; ALUOp <= "00"; -- SW
 		when BEQ => RegDst <= 'X'; ALUSrc <= '0'; MemtoReg <= 'X'; RegWrite <='0'; MemRead<='0'; MemWrite<='1'; Branch<='1'; ALUOp <= "01"; -- BEQ

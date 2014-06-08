@@ -23,6 +23,7 @@ architecture arq_mips_pipeline of mips_pipeline is
     
     signal IF_instr, IF_pc, IF_pc_next, IF_pc4 : reg32 := (others => '0');
 
+
     -- ID Signal Declarations
 
     signal ID_instr, ID_pc4 :reg32;  -- pipeline register values from EX
@@ -36,7 +37,7 @@ architecture arq_mips_pipeline of mips_pipeline is
     -- EX Signals
 
     signal EX_pc4, EX_extend, EX_A, EX_B: reg32;
-    signal EX_offset, EX_btgt, EX_alub, EX_ALUOut: reg32;
+    signal EX_offset, EX_btgt, EX_ALUOut: reg32;
     signal EX_rt, EX_rd: std_logic_vector(4 downto 0);
     signal EX_RegRd: std_logic_vector(4 downto 0);
     signal EX_funct: std_logic_vector(5 downto 0);
@@ -44,9 +45,7 @@ architecture arq_mips_pipeline of mips_pipeline is
     signal EX_Zero: std_logic;
     signal EX_ALUOp: std_logic_vector(1 downto 0);
     signal EX_Operation: std_logic_vector(2 downto 0);
-
-    
-
+   
    -- MEM Signals
 
     signal MEM_PCSrc: std_logic;
@@ -63,6 +62,14 @@ architecture arq_mips_pipeline of mips_pipeline is
     signal WB_wd: reg32;
     signal WB_RegRd: std_logic_vector(4 downto 0);
 
+--	Fios adicionados
+--	EX_ForwA e EX_ForwB - seletores dos MUX que foram adicionados para o adiantamento
+    signal EX_ForwA, EX_ForwB : std_logic_vector(1 downto 0);
+	signal IF_PCWrite, ID_Flush: std_logic;
+--	EX_ALUA e EX_ALUB - Entradas da ULA
+    signal EX_ALUA, EX_ALUB, EX_ALUBAUX: reg32;
+	signal EX_rs: std_logic_vector(4 downto 0);
+
 
 
 begin -- BEGIN MIPS_PIPELINE ARCHITECTURE
@@ -72,8 +79,7 @@ begin -- BEGIN MIPS_PIPELINE ARCHITECTURE
     -- ********************************************************************
 
     -- IF Hardware
-
-    PC: entity work.reg port map (clk, reset, IF_pc_next, IF_pc);
+    PC: entity work.reg32_ce port map (clk, reset, IF_PCWrite, IF_pc_next, IF_pc);
 
     PC4: entity work.add32 port map (IF_pc, x"00000004", IF_pc4);
 
@@ -84,7 +90,7 @@ begin -- BEGIN MIPS_PIPELINE ARCHITECTURE
     IF_s: process(clk)
     begin     			-- IF/ID Pipeline Register
     	if rising_edge(clk) then
-        	if reset = '1' then
+        	if (reset = '1') or (ID_Flush = '1') then
             		ID_instr <= (others => '0');
             		ID_pc4   <= (others => '0');
         	else
@@ -111,7 +117,7 @@ begin -- BEGIN MIPS_PIPELINE ARCHITECTURE
 
 
     -- sign-extender
-    EXT: process(ID_immed)
+    EXT: process(ID_immed, ID_op)
     begin
 	if ID_immed(15) = '1' then
 		ID_extend <= x"FFFF" & ID_immed(15 downto 0);
@@ -119,7 +125,9 @@ begin -- BEGIN MIPS_PIPELINE ARCHITECTURE
 		ID_extend <= x"0000" & ID_immed(15 downto 0);
 	end if;
     end process;
-    
+
+--    
+	HAZARD: entity work.hazard_unit port map (ID_rt, ID_rs, EX_rt, EX_MemRead, IF_PCWrite, ID_Flush);	
 
     CTRL: entity work.control_pipeline port map (ID_op, ID_RegDst, ID_ALUSrc, ID_MemtoReg, ID_RegWrite, ID_MemRead, ID_MemWrite, ID_Branch, ID_ALUOp);
 
@@ -143,6 +151,7 @@ begin -- BEGIN MIPS_PIPELINE ARCHITECTURE
 			EX_extend   <= (others => '0');
 			EX_rt       <= (others => '0');
 			EX_rd       <= (others => '0');
+			EX_rs       <= (others => '0');
         	else 
             		EX_RegDst   <= ID_RegDst;
             		EX_ALUOp    <= ID_ALUOp;
@@ -159,6 +168,7 @@ begin -- BEGIN MIPS_PIPELINE ARCHITECTURE
             		EX_extend   <= ID_extend;
             		EX_rt       <= ID_rt;
             		EX_rd       <= ID_rd;
+					EX_rs       <= ID_rs;
         	end if;
 	end if;
     end process;
@@ -167,6 +177,14 @@ begin -- BEGIN MIPS_PIPELINE ARCHITECTURE
     --                              EX Stage
     -- ********************************************************************
 
+    -- Unidade de Forwarding para controlar os adiantamentos
+    FORWARDING_UNIT: entity work.forwarding_unit port map (MEM_RegWrite, MEM_RegRd, WB_RegWrite, WB_RegRd, EX_Rs, EX_Rt, EX_ForwA, EX_ForwB);
+    ALU_MUX_A: entity work.mux3 port map (EX_ForwA, EX_A, WB_wd, MEM_ALUOut, EX_ALUA );
+    ALU_MUX_B_AUX: entity work.mux2 port map (EX_ALUSrc, EX_B, EX_extend, EX_ALUBAUX);
+    ALU_MUX_B: entity work.mux3 port map (EX_ForwB, EX_ALUBAUX, WB_wd, MEM_ALUOut, EX_ALUB);
+	
+    ALU_h: entity work.alu port map (EX_Operation, EX_ALUA, EX_ALUB, EX_ALUOut, EX_Zero);
+
     -- branch offset shifter
     SIGN_EXT: entity work.shift_left port map (EX_extend, 2, EX_offset);
 
@@ -174,9 +192,6 @@ begin -- BEGIN MIPS_PIPELINE ARCHITECTURE
 
     BRANCH_ADD: entity work.add32 port map (EX_pc4, EX_offset, EX_btgt);
 
-    ALU_MUX_A: entity work.mux2 port map (EX_ALUSrc, EX_B, EX_extend, EX_alub);
-
-    ALU_h: entity work.alu port map (EX_Operation, EX_A, EX_alub, EX_ALUOut, EX_Zero);
 
     DEST_MUX2: entity work.mux2 generic map (5) port map (EX_RegDst, EX_rt, EX_rd, EX_RegRd);
 

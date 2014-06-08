@@ -24,6 +24,8 @@ SRC = 	basic_types.vhd \
     	alu.vhd \
     	alu_ctl.vhd \
     	mem32.vhd \
+    	forwarding_unit.vhd \
+    	hazard_unit.vhd \
     	mips_pipeline.vhd \
     	mips_tb.vhd
 
@@ -41,6 +43,8 @@ OBJ = 	basic_types.o \
     	alu.o \
     	alu_ctl.o \
     	mem32.o \
+    	forwarding_unit.o \
+    	hazard_unit.o \
     	mips_pipeline.o \
     	mips_tb.o
 
@@ -54,5 +58,5 @@ sim: $(TB)
 	$(SIMUL) $(TB) $(VCD) $(STOP) 2> /dev/null
 
 clean:
-	rm -f *.o *.cf
+	rm *.o *.cf
 	
